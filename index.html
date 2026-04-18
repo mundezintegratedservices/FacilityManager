@@ -408,22 +408,147 @@ svg{display:block;flex-shrink:0}
 .fg.row label{margin-bottom:0;white-space:nowrap}
 
 /* ══════════════════════════════════════════════
-   NIGERIA MAP
+   NIGERIA INTERACTIVE MAP
 ══════════════════════════════════════════════ */
 .map-wrap{
   background:var(--card);position:relative;
   border-radius:0 0 var(--rl) var(--rl);
-  overflow:hidden;min-height:300px;
+  overflow:hidden;min-height:360px;display:flex;flex-direction:column;
 }
-#nga-svg{width:100%;height:auto;display:block}
-.map-tt{
-  position:absolute;background:var(--bg);
-  border:1px solid var(--amber);border-radius:6px;
-  padding:7px 11px;pointer-events:none;
-  font-size:12px;white-space:nowrap;
-  box-shadow:var(--shadow);z-index:10;display:none;
+.nga-map-inner{
+  flex:1;display:flex;overflow:hidden;min-height:320px;position:relative;
 }
-.map-legend{display:flex;gap:14px;padding:9px 14px;border-top:1px solid var(--border)}
+.nga-sidebar{
+  width:180px;flex-shrink:0;
+  background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.nga-sidebar-lbl{
+  padding:7px 12px 5px;font-size:9px;font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:2px;color:var(--txt3);
+  border-bottom:1px solid var(--border);
+}
+.nga-zone-legend{padding:6px 8px;border-bottom:1px solid var(--border)}
+.nga-zone-item{
+  display:flex;align-items:center;gap:7px;cursor:pointer;
+  padding:4px 7px;border-radius:5px;transition:background .12s;
+}
+.nga-zone-item:hover{background:rgba(255,255,255,0.04)}
+.nga-zone-item.active{background:rgba(255,255,255,0.07)}
+.nga-zone-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.15)}
+.nga-zone-label{font-size:11px;font-weight:600;color:var(--txt)}
+.nga-zone-count{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--txt3)}
+.nga-info-panel{flex:1;overflow-y:auto;padding:10px}
+.nga-info-panel::-webkit-scrollbar{width:3px}
+.nga-info-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.nga-placeholder{text-align:center;padding:20px 10px;color:var(--txt3);font-size:11px;line-height:1.7}
+.nga-state-info{display:none}
+.nga-state-info.visible{display:block}
+.nga-si-name{font-size:16px;font-weight:700;margin-bottom:2px;color:var(--txt)}
+.nga-si-badge{
+  display:inline-block;padding:2px 8px;border-radius:20px;
+  font-size:9px;font-family:var(--mono);font-weight:700;
+  margin-bottom:10px;border:1.5px solid currentColor;
+}
+.nga-stat-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;
+}
+.nga-stat-row:last-of-type{border-bottom:none}
+.nga-stat-label{color:var(--txt3);font-family:var(--mono);font-size:9px;text-transform:uppercase}
+.nga-stat-value{font-weight:600;color:var(--txt)}
+.nga-lga-title{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--txt3);margin:10px 0 5px}
+.nga-lga-grid{display:flex;flex-direction:column;gap:2px}
+.nga-lga-pill{
+  padding:3px 8px;background:rgba(255,255,255,0.03);border-radius:4px;
+  font-size:10px;border-left:3px solid transparent;transition:all .1s;color:var(--txt2);
+}
+.nga-lga-pill:hover{background:rgba(255,255,255,0.07)}
+
+/* Asset info in sidebar */
+.nga-assets-in-state{margin-top:10px}
+.nga-assets-lbl{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--txt3);margin-bottom:5px}
+.nga-asset-pill{
+  padding:4px 8px;margin-bottom:3px;border-radius:4px;font-size:11px;font-weight:600;
+  background:rgba(245,158,11,0.1);border-left:3px solid var(--amber);color:var(--amber);
+}
+
+.nga-map-area{
+  flex:1;position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 45%,#1a2030 0%,#0d1117 100%);
+}
+#nga-interactive-svg{
+  position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;
+}
+.nga-state-path{
+  stroke:rgba(0,0,0,0.6);stroke-width:0.6;
+  transition:filter .12s;cursor:pointer;
+}
+.nga-state-path:hover{
+  filter:brightness(1.4) drop-shadow(0 0 5px rgba(245,158,11,0.35));
+  stroke:var(--amber);stroke-width:1.0;
+}
+.nga-state-path.dimmed{opacity:0.15}
+.nga-state-path.selected{stroke:var(--amber)!important;stroke-width:1.3;filter:brightness(1.15)}
+.nga-state-label{
+  font-family:var(--mono);font-size:5.5px;fill:rgba(255,255,255,0.4);
+  pointer-events:none;text-anchor:middle;dominant-baseline:middle;letter-spacing:0.3px;
+}
+
+/* Asset pins on the map */
+.nga-asset-pin{cursor:pointer;transition:transform .15s}
+.nga-asset-pin:hover{transform:scale(1.3)}
+@keyframes nga-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Loading overlay inside map */
+.nga-loading{
+  position:absolute;inset:0;background:var(--card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;z-index:20;
+}
+.nga-loader-ring{
+  width:32px;height:32px;border:3px solid var(--border);
+  border-top-color:var(--amber);border-radius:50%;
+  animation:nga-spin .75s linear infinite;
+}
+@keyframes nga-spin{to{transform:rotate(360deg)}}
+.nga-loading-txt{font-family:var(--mono);font-size:10px;color:var(--txt3)}
+
+/* Tooltip — fixed position */
+#nga-tooltip{
+  position:fixed;background:var(--bg);border:1px solid var(--amber);
+  border-radius:8px;padding:9px 13px;pointer-events:none;display:none;
+  z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:150px;
+}
+.nga-tt1{font-size:13px;font-weight:700;margin-bottom:1px;color:var(--txt)}
+.nga-tt2{font-size:10px;font-family:var(--mono);color:var(--txt3);margin-bottom:5px}
+.nga-tt-stats{display:flex;gap:14px}
+.nga-tt-stat{font-size:11px;color:var(--txt)}
+.nga-tt-stat span{display:block;color:var(--txt3);font-size:9px;font-family:var(--mono);text-transform:uppercase}
+
+/* Top controls */
+.nga-map-top{
+  position:absolute;top:10px;left:10px;right:10px;
+  display:flex;gap:7px;align-items:center;z-index:10;pointer-events:none;
+}
+.nga-map-top>*{pointer-events:all}
+.nga-search{
+  background:rgba(22,28,37,0.95);border:1px solid var(--border2);
+  color:var(--txt);padding:5px 10px;border-radius:6px;
+  font-family:var(--mono);font-size:10px;width:160px;outline:none;
+  transition:border-color .15s;
+}
+.nga-search:focus{border-color:var(--amber)}
+.nga-search::placeholder{color:var(--txt3)}
+.nga-reset-btn{
+  background:rgba(22,28,37,0.95);border:1px solid var(--border2);
+  color:var(--txt3);padding:5px 10px;border-radius:6px;
+  font-family:var(--mono);font-size:9px;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.5px;transition:all .12s;
+}
+.nga-reset-btn:hover{border-color:var(--amber);color:var(--amber)}
+
+.map-legend{display:flex;gap:14px;padding:8px 14px;border-top:1px solid var(--border)}
 .leg-i{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt3)}
 .leg-d{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
@@ -977,15 +1102,38 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
           <div class="pnl">
             <div class="pnl-h">
               <div class="pnl-t"><span class="pnl-dot"></span>Property Locations — Nigeria</div>
-              <span style="font-family:var(--mono);font-size:10px;color:var(--txt3)" id="map-count">1 ASSET</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--txt3)" id="map-count">0 ASSETS</span>
             </div>
             <div class="map-wrap" id="map-wrap">
-              <svg id="nga-svg" viewBox="2.6 4.2 12.2 10" xmlns="http://www.w3.org/2000/svg"></svg>
-              <div class="map-tt" id="map-tt"></div>
+              <div class="nga-map-inner">
+                <!-- Map canvas -->
+                <div class="nga-map-area">
+                  <div class="nga-loading" id="nga-loading">
+                    <div class="nga-loader-ring"></div>
+                    <div class="nga-loading-txt">Loading map…</div>
+                  </div>
+
+                  <svg id="nga-interactive-svg" viewBox="0 0 810 770" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                    <g id="nga-states-group"></g>
+                    <g id="nga-lga-group"></g>
+                    <g id="nga-labels-group"></g>
+                    <g id="nga-pins-group"></g>
+                  </svg>
+                </div>
+              </div>
+              <div class="map-legend">
+                <div class="leg-i"><div class="leg-d" style="background:var(--amber)"></div>Active Asset</div>
+                <div class="leg-i"><div class="leg-d" style="background:var(--txt3)"></div>Inactive Asset</div>
+              </div>
             </div>
-            <div class="map-legend">
-              <div class="leg-i"><div class="leg-d" style="background:var(--amber)"></div>Active</div>
-              <div class="leg-i"><div class="leg-d" style="background:var(--txt3)"></div>Inactive</div>
+          </div>
+          <!-- Tooltip (fixed, outside scroll) -->
+          <div id="nga-tooltip">
+            <div class="nga-tt1" id="nga-tt1"></div>
+            <div class="nga-tt2" id="nga-tt2"></div>
+            <div class="nga-tt-stats">
+              <div class="nga-tt-stat"><span>Capital</span><span id="nga-tt-capital">—</span></div>
+              <div class="nga-tt-stat"><span>LGAs</span><span id="nga-tt-lga-count">—</span></div>
             </div>
           </div>
           <!-- Asset cards -->
@@ -2132,109 +2280,253 @@ function syncMobBadges(){
 }
 
 /* ════════════════════════════════════════════
-   NIGERIA MAP — Real outline from GeoJSON
+   NIGERIA INTERACTIVE MAP
 ════════════════════════════════════════════ */
-function drawMap(){
-  const svg=document.getElementById('nga-svg'); if(!svg) return;
-  svg.innerHTML='';
-  const vb={x:2.6,y:4.2,w:12.2,h:10};
+const NGA_BASE = 'https://opensheet.elk.sh/1h6sOrcBW0no1uAXJT0coZLTiuV2V8FIzzMNRWFMkMGA';
+let ngaZones=[], ngaStates=[], ngaLgas=[];
+let ngaSelectedState=null, ngaActiveZone=null, ngaMapReady=false;
 
-  // Background
-  const bg=el('rect'); bg.setAttribute('width','100%'); bg.setAttribute('height','100%'); bg.setAttribute('fill','#12181f'); svg.appendChild(bg);
+function ngaSVGel(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
 
-  // Grid
-  for(let i=0;i<=12;i++){
-    const v=el('line'); v.setAttribute('x1',2.6+i); v.setAttribute('x2',2.6+i); v.setAttribute('y1',4.2); v.setAttribute('y2',14.2);
-    v.setAttribute('stroke','#1a2332'); v.setAttribute('stroke-width','0.02'); svg.appendChild(v);
+function ngaZoneColor(zoneName){
+  const z=ngaZones.find(z=>z.zone_name===zoneName);
+  return z?z.color_hex:'#666';
+}
+
+async function drawMap(){
+  // Only fetch once; on subsequent calls just redraw pins
+  if(!ngaMapReady){
+    try{
+      [ngaStates,ngaLgas]=await Promise.all([
+        fetch(`${NGA_BASE}/States`).then(r=>r.json()),
+        fetch(`${NGA_BASE}/LGAs`).then(r=>r.json()),
+      ]);
+      ngaBuildStateMap();
+      ngaMapReady=true;
+    }catch(e){
+      const lt=document.getElementById('nga-loading');
+      if(lt) lt.querySelector('.nga-loading-txt').textContent='Map load failed. Check connection.';
+      console.error('NGA map load error:',e);
+      return;
+    }
   }
-  for(let i=0;i<=10;i++){
-    const h=el('line'); h.setAttribute('y1',4.2+i); h.setAttribute('y2',4.2+i); h.setAttribute('x1',2.6); h.setAttribute('x2',14.8);
-    h.setAttribute('stroke','#1a2332'); h.setAttribute('stroke-width','0.02'); svg.appendChild(h);
-  }
+  const loading=document.getElementById('nga-loading');
+  if(loading) loading.style.display='none';
+  ngaDrawPins();
+  ngaUpdateCount();
+}
 
-  // Nigeria outline — extracted key boundary points from the provided GeoJSON
-  // This traces the outer coastline and land borders
-  const outline = "M 3.5 4.45 L 4.0 4.34 L 4.8 4.32 L 5.5 4.34 L 6.0 4.32 L 6.5 4.34 L 6.8 4.38 L 7.0 4.44 L 7.3 4.45 L 7.5 4.52 L 7.7 4.52 L 8.0 4.54 L 8.3 4.55 L 8.5 4.58 L 8.6 4.62 L 8.8 4.67 L 8.9 4.72 L 9.1 4.83 L 9.2 4.95 L 9.2 5.12 L 9.1 5.31 L 9.08 5.60 L 8.98 5.72 L 8.88 5.82 L 8.88 5.92 L 8.87 6.02 L 8.86 6.10 L 8.85 6.15 L 8.84 6.23 L 8.86 6.28 L 8.95 6.41 L 9.07 6.52 L 9.26 6.62 L 9.44 6.74 L 9.59 6.82 L 9.69 6.87 L 9.79 6.94 L 9.89 6.97 L 9.96 7.00 L 10.02 6.91 L 10.08 6.93 L 10.17 6.97 L 10.20 7.01 L 10.47 6.89 L 10.55 6.95 L 10.57 7.05 L 10.57 7.12 L 10.56 7.18 L 10.56 7.27 L 10.58 7.50 L 10.59 7.67 L 10.56 7.80 L 10.56 7.93 L 10.58 8.08 L 10.60 8.16 L 10.63 8.29 L 10.63 8.44 L 10.61 8.51 L 10.57 8.57 L 10.57 8.65 L 10.62 8.72 L 10.72 8.82 L 10.82 8.88 L 10.83 8.95 L 10.88 9.03 L 10.91 9.06 L 10.93 9.12 L 10.97 9.20 L 10.98 9.28 L 10.98 9.36 L 10.99 9.47 L 11.00 9.53 L 11.10 9.66 L 11.12 9.74 L 11.13 9.82 L 11.10 9.93 L 11.09 10.01 L 11.10 10.10 L 11.22 10.20 L 11.23 10.30 L 11.24 10.47 L 11.25 10.55 L 11.28 10.62 L 11.30 10.72 L 11.30 10.83 L 11.26 10.90 L 11.26 11.03 L 11.17 11.12 L 11.08 11.24 L 11.07 11.32 L 11.06 11.44 L 11.08 11.57 L 11.15 11.65 L 11.22 11.76 L 11.28 11.80 L 11.38 11.84 L 11.43 11.93 L 11.48 12.00 L 11.50 12.12 L 11.50 12.25 L 11.48 12.37 L 11.46 12.50 L 11.46 12.60 L 11.49 12.68 L 11.57 12.76 L 11.65 12.83 L 11.73 12.87 L 11.80 12.90 L 11.89 12.91 L 11.96 12.92 L 12.05 12.90 L 12.11 12.92 L 12.18 12.98 L 12.23 13.06 L 12.26 13.12 L 12.27 13.22 L 12.26 13.32 L 12.22 13.38 L 12.20 13.44 L 12.23 13.54 L 12.28 13.62 L 12.33 13.67 L 12.43 13.72 L 12.47 13.74 L 11.90 13.74 L 11.50 13.78 L 11.10 13.77 L 10.70 13.78 L 10.00 13.78 L 9.60 13.74 L 9.20 13.70 L 8.90 13.67 L 8.55 13.62 L 7.90 13.55 L 7.20 13.50 L 6.70 13.46 L 6.40 13.44 L 6.20 13.43 L 5.80 13.44 L 5.55 13.44 L 5.10 13.47 L 4.80 13.47 L 4.40 13.48 L 4.12 13.51 L 3.97 13.48 L 3.82 13.38 L 3.70 13.27 L 3.65 13.12 L 3.64 12.98 L 3.66 12.82 L 3.64 12.62 L 3.63 12.48 L 3.64 12.30 L 3.63 12.10 L 3.64 11.92 L 3.65 11.80 L 3.64 11.60 L 3.65 11.42 L 3.65 11.22 L 3.64 11.08 L 3.62 10.90 L 3.62 10.72 L 3.63 10.55 L 3.63 10.40 L 3.62 10.22 L 3.61 10.08 L 3.63 9.92 L 3.64 9.74 L 3.63 9.58 L 3.61 9.40 L 3.60 9.20 L 3.57 9.04 L 3.54 8.90 L 3.52 8.74 L 3.50 8.58 L 3.47 8.42 L 3.47 8.28 L 3.48 8.12 L 3.50 7.95 L 3.50 7.78 L 3.47 7.62 L 3.45 7.45 L 3.45 7.28 L 3.47 7.10 L 3.47 6.92 L 3.46 6.75 L 3.46 6.60 L 3.48 6.45 L 3.52 6.30 L 3.54 6.15 L 3.52 6.00 L 3.49 5.88 L 3.47 5.72 L 3.47 5.57 L 3.49 5.42 L 3.50 4.45 Z";
-
-  // FCT outline (approximate)
-  const fctOutline = el('path');
-  fctOutline.setAttribute('d','M 6.9 8.5 L 7.0 8.4 L 7.2 8.4 L 7.4 8.45 L 7.6 8.5 L 7.7 8.6 L 7.8 8.7 L 7.75 8.85 L 7.65 8.9 L 7.5 8.95 L 7.3 9.0 L 7.1 8.98 L 6.95 8.9 L 6.88 8.75 L 6.9 8.5 Z');
-  fctOutline.setAttribute('fill','rgba(245,158,11,0.06)'); fctOutline.setAttribute('stroke','rgba(245,158,11,0.18)'); fctOutline.setAttribute('stroke-width','0.025'); svg.appendChild(fctOutline);
-
-  const path=el('path');
-  path.setAttribute('d',outline); path.setAttribute('fill','#1c2a3a'); path.setAttribute('stroke','#2d3f52'); path.setAttribute('stroke-width','0.05'); path.setAttribute('stroke-linejoin','round');
-  svg.appendChild(path);
-
-  // States subtle lines (approximate major borders)
-  const borders=[
-    "M 7.0 4.45 L 7.1 6.0 L 6.8 7.5 L 6.5 9.0 L 6.7 10.5 L 7.0 11.5 L 7.2 13.5",
-    "M 9.5 4.45 L 9.4 6.0 L 9.2 7.5 L 9.3 9.0 L 9.5 10.5 L 9.8 12.0 L 10.0 13.5",
-    "M 3.5 9.0 L 5.5 8.8 L 7.5 8.9 L 9.5 9.0 L 11.5 9.1 L 12.5 9.0",
-    "M 3.5 11.5 L 6.0 11.4 L 8.5 11.5 L 11.0 11.6 L 12.5 11.5",
-    "M 3.5 7.0 L 6.0 7.1 L 8.5 7.0 L 11.0 6.9 L 12.2 7.0",
-  ];
-  borders.forEach(d=>{
-    const b=el('path'); b.setAttribute('d',d); b.setAttribute('fill','none');
-    b.setAttribute('stroke','#243244'); b.setAttribute('stroke-width','0.03'); svg.appendChild(b);
+function ngaBuildZoneLegend(){
+  const container=document.getElementById('nga-zone-legend'); if(!container) return;
+  const counts={};
+  ngaStates.forEach(s=>{counts[s.zone]=(counts[s.zone]||0)+1;});
+  ngaZones.forEach(z=>{
+    const d=document.createElement('div');
+    d.className='nga-zone-item'; d.dataset.zone=z.zone_name;
+    d.innerHTML=`<div class="nga-zone-dot" style="background:${z.color_hex}"></div>
+      <span class="nga-zone-label">${z.zone_name}</span>
+      <span class="nga-zone-count">${counts[z.zone_name]||0}</span>`;
+    d.addEventListener('click',()=>ngaToggleZone(z.zone_name,d));
+    container.appendChild(d);
   });
+}
 
-  // Labels
-  const lbls=[{t:'LAGOS',x:4.0,y:6.6},{t:'FCT',x:7.35,y:8.78},{t:'KANO',x:8.6,y:12.1},
-    {t:'RIVERS',x:4.8,y:5.1},{t:'BORNO',x:11.5,y:12.3},{t:'OGUN',x:3.6,y:7.1}];
-  lbls.forEach(({t,x,y})=>{
-    const tx=el('text'); tx.setAttribute('x',x); tx.setAttribute('y',y);
-    tx.setAttribute('text-anchor','middle'); tx.setAttribute('fill','#3a4f65');
-    tx.setAttribute('font-size','0.16'); tx.setAttribute('font-family','monospace');
-    tx.setAttribute('letter-spacing','0.02'); tx.textContent=t; svg.appendChild(tx);
+function ngaBuildStateMap(){
+  const statesG=document.getElementById('nga-states-group');
+  const labelsG=document.getElementById('nga-labels-group');
+  if(!statesG||!labelsG) return;
+  ngaStates.forEach(state=>{
+    const color='rgb(83,101,124)';
+    let paths; try{paths=JSON.parse(state.svg_paths);}catch(e){return;}
+    const g=ngaSVGel('g'); g.dataset.stateKey=state.state_key;
+    paths.forEach(d=>{
+      const p=ngaSVGel('path'); p.setAttribute('d',d); p.setAttribute('fill',color);
+      p.classList.add('nga-state-path'); p.dataset.stateKey=state.state_key;
+      g.appendChild(p);
+    });
+    statesG.appendChild(g);
+    const tx=ngaSVGel('text');
+    tx.setAttribute('x',state.label_x); tx.setAttribute('y',state.label_y);
+    tx.classList.add('nga-state-label'); tx.textContent=state.display_name;
+    labelsG.appendChild(tx);
   });
+}
 
-  // Asset markers
+function ngaDrawPins(){
+  const pinsG=document.getElementById('nga-pins-group'); if(!pinsG) return;
+  pinsG.innerHTML='';
+  // Group assets by matched state
+  const byState={};
   S.assets.forEach(a=>{
-    // Convert lon/lat to SVG coords (viewBox 2.6–14.8 x, 4.2–14.2 y, lat inverted)
-    const sx = a.lon;
-    const sy = 14.2-(a.lat-4.2); // approximate inversion for latitude
-    addMarker(svg, sx, sy, a.name, `${a.city}, ${a.state}`, a.active);
+    const st=ngaStates.find(s=>
+      s.display_name.toLowerCase()===( a.state||'').toLowerCase()||
+      s.state_key.toLowerCase()===(a.state||'').toLowerCase()||
+      s.display_name.toLowerCase().includes((a.state||'').toLowerCase())||
+      (a.state||'').toLowerCase().includes(s.display_name.toLowerCase())
+    );
+    if(!st) return;
+    const key=st.state_key;
+    if(!byState[key]) byState[key]={state:st,assets:[]};
+    byState[key].assets.push(a);
+  });
+  Object.values(byState).forEach(({state,assets})=>{
+    const cx=parseFloat(state.label_x), cy=parseFloat(state.label_y);
+    assets.forEach((a,i)=>{
+      const cols=Math.ceil(Math.sqrt(assets.length));
+      const col=i%cols, row=Math.floor(i/cols);
+      const spread=14;
+      const ox=(col-(cols-1)/2)*spread, oy=(row-(Math.ceil(assets.length/cols)-1)/2)*spread;
+      ngaAddPin(pinsG, cx+ox, cy+oy, a.name, `${a.city||''}, ${a.state||''}`.replace(/^,\s*/,''), a.active);
+    });
   });
 }
 
-function el(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); }
-
-function addMarker(svg,x,y,title,sub,active){
-  const g=el('g'); g.setAttribute('class','asset-marker'); g.setAttribute('transform',`translate(${x},${y})`);
-  g.style.cursor='pointer'; g.style.transition='transform .15s';
-  g.addEventListener('mouseenter',()=>{ g.setAttribute('transform',`translate(${x},${y}) scale(1.4)`); showMapTT(x,y,title,sub); });
-  g.addEventListener('mouseleave',()=>{ g.setAttribute('transform',`translate(${x},${y}) scale(1)`); hideMapTT(); });
-  g.addEventListener('click',()=>navTo('assets'));
-
+function ngaAddPin(pinsG,x,y,title,sub,active){
+  const g=ngaSVGel('g');
+  g.classList.add('nga-asset-pin');
+  g.setAttribute('transform',`translate(${x},${y})`);
   // Pulse ring
-  const pulse=el('circle'); pulse.setAttribute('r','0.25'); pulse.setAttribute('fill',active?'rgba(245,158,11,0.15)':'rgba(100,116,139,0.15)');
-  pulse.style.animation='mp 2s ease-in-out infinite'; g.appendChild(pulse);
-
-  // Pin
-  const pin=el('path'); pin.setAttribute('d','M0,-0.32 C-0.18,-0.32 -0.26,-0.18 -0.26,-0.06 C-0.26,0.12 0,0.34 0,0.34 S0.26,0.12 0.26,-0.06 C0.26,-0.18 0.18,-0.32 0,-0.32Z');
-  pin.setAttribute('fill',active?'#f59e0b':'#64748b'); pin.setAttribute('stroke',active?'#92400e':'#334155'); pin.setAttribute('stroke-width','0.02'); g.appendChild(pin);
-
-  const dot=el('circle'); dot.setAttribute('r','0.07'); dot.setAttribute('cx','0'); dot.setAttribute('cy','-0.06');
-  dot.setAttribute('fill','rgba(0,0,0,0.4)'); g.appendChild(dot);
-  svg.appendChild(g);
+  const pulse=ngaSVGel('circle');
+  pulse.setAttribute('r','12'); pulse.setAttribute('cx','0'); pulse.setAttribute('cy','0');
+  pulse.setAttribute('fill',active?'rgba(245,158,11,0.15)':'rgba(100,116,139,0.12)');
+  pulse.style.animation='nga-pulse 2s ease-in-out infinite';
+  g.appendChild(pulse);
+  // Pin body
+  const pin=ngaSVGel('path');
+  pin.setAttribute('d','M0,-16 C-9,-16 -13,-9 -13,-3 C-13,6 0,17 0,17 S13,6 13,-3 C13,-9 9,-16 0,-16Z');
+  pin.setAttribute('fill',active?'#f59e0b':'#64748b');
+  pin.setAttribute('stroke',active?'#92400e':'#334155');
+  pin.setAttribute('stroke-width','1.2');
+  g.appendChild(pin);
+  // Inner dot
+  const dot=ngaSVGel('circle');
+  dot.setAttribute('cx','0'); dot.setAttribute('cy','-3'); dot.setAttribute('r','4');
+  dot.setAttribute('fill','rgba(0,0,0,0.35)');
+  g.appendChild(dot);
+  // Hover events
+  g.addEventListener('mouseenter',e=>{ ngaShowPinTT(e,title,sub); });
+  g.addEventListener('mousemove',ngaOnMouseMove);
+  g.addEventListener('mouseleave',()=>{ document.getElementById('nga-tooltip').style.display='none'; });
+  g.addEventListener('click',()=>navTo('assets'));
+  pinsG.appendChild(g);
 }
 
-const style=document.createElement('style');
-style.textContent=`@keyframes mp{0%,100%{opacity:1}50%{opacity:.3}}`;
-document.head.appendChild(style);
+function ngaUpdateCount(){
+  const mc=document.getElementById('map-count');
+  if(mc){ const n=S.assets.length; mc.textContent=`${n} ASSET${n===1?'':'S'}`; }
+}
 
-function showMapTT(x,y,title,sub){
-  const tt=document.getElementById('map-tt');
-  const svgEl=document.getElementById('nga-svg');
-  const rect=svgEl.getBoundingClientRect();
-  const vb={x:2.6,y:4.2,w:12.2,h:10};
-  const px=((x-vb.x)/vb.w)*rect.width;
-  const py=((y-vb.y)/vb.h)*rect.height;
-  tt.style.left=(px+10)+'px'; tt.style.top=Math.max(0,py-40)+'px';
-  tt.innerHTML=`<strong style="color:var(--amber)">${title}</strong><br><span style="color:var(--txt3)">${sub}</span>`;
+const ngaTT=()=>document.getElementById('nga-tooltip');
+function ngaShowPinTT(e,title,sub){
+  const tt=ngaTT(); if(!tt) return;
+  document.getElementById('nga-tt1').textContent=title;
+  document.getElementById('nga-tt2').textContent=sub;
+  document.getElementById('nga-tt-capital').textContent='—';
+  document.getElementById('nga-tt-lga-count').textContent='—';
   tt.style.display='block';
+  ngaOnMouseMove(e);
 }
-function hideMapTT(){ document.getElementById('map-tt').style.display='none'; }
+
+function ngaOnMouseMove(e){
+  const tt=ngaTT(); if(!tt||tt.style.display==='none') return;
+  let x=e.clientX+16, y=e.clientY-12;
+  const tw=tt.offsetWidth, th=tt.offsetHeight;
+  if(x+tw+16>window.innerWidth) x=e.clientX-tw-12;
+  if(y+th+16>window.innerHeight) y=e.clientY-th-10;
+  tt.style.left=x+'px'; tt.style.top=y+'px';
+}
+
+function ngaOnStateEnter(e,state){
+  const tt=ngaTT(); if(!tt) return;
+  const lgaCount=ngaLgas.filter(l=>l.state_key===state.state_key).length;
+  document.getElementById('nga-tt1').textContent=state.display_name;
+  document.getElementById('nga-tt2').textContent=state.zone;
+  document.getElementById('nga-tt-capital').textContent=state.capital;
+  document.getElementById('nga-tt-lga-count').textContent=lgaCount;
+  tt.style.display='block';
+  if(!ngaSelectedState) ngaShowStateInfo(state,false);
+}
+
+function ngaOnStateLeave(){
+  const tt=ngaTT(); if(tt) tt.style.display='none';
+  if(!ngaSelectedState){
+    const si=document.getElementById('nga-state-info');
+    const ph=document.getElementById('nga-placeholder');
+    if(si) si.classList.remove('visible');
+    if(ph) ph.style.display='';
+  }
+}
+
+function ngaOnStateClick(state){
+  if(ngaSelectedState&&ngaSelectedState.state_key===state.state_key){
+    ngaSelectedState=null;
+    document.querySelectorAll('.nga-state-path.selected').forEach(p=>p.classList.remove('selected'));
+    const si=document.getElementById('nga-state-info');
+    const ph=document.getElementById('nga-placeholder');
+    if(si) si.classList.remove('visible');
+    if(ph) ph.style.display='';
+  }else{
+    ngaSelectedState=state;
+    document.querySelectorAll('.nga-state-path.selected').forEach(p=>p.classList.remove('selected'));
+    document.querySelectorAll(`g[data-state-key="${state.state_key}"] .nga-state-path`).forEach(p=>p.classList.add('selected'));
+    ngaShowStateInfo(state,true);
+  }
+}
+
+function ngaShowStateInfo(state,full){
+  const lgas=ngaLgas.filter(l=>l.state_key===state.state_key).map(l=>l.lga_name);
+  const color=ngaZoneColor(state.zone);
+  const ph=document.getElementById('nga-placeholder');
+  const si=document.getElementById('nga-state-info');
+  if(ph) ph.style.display='none';
+  if(si) si.classList.add('visible');
+  document.getElementById('nga-si-name').textContent=state.display_name;
+  const badge=document.getElementById('nga-si-badge');
+  badge.textContent=state.zone; badge.style.color=color;
+  badge.style.borderColor=color; badge.style.background=color+'18';
+  document.getElementById('nga-si-capital').textContent=state.capital;
+  document.getElementById('nga-si-zone').textContent=state.zone;
+  document.getElementById('nga-si-lga-count').textContent=lgas.length;
+  // Show assets in this state
+  const assetsHere=S.assets.filter(a=>
+    (a.state||'').toLowerCase().includes(state.display_name.toLowerCase())||
+    state.display_name.toLowerCase().includes((a.state||'').toLowerCase())
+  );
+  const aEl=document.getElementById('nga-assets-in-state');
+  if(aEl){
+    aEl.innerHTML=assetsHere.length?`
+      <div class="nga-assets-lbl">Assets here (${assetsHere.length})</div>
+      ${assetsHere.map(a=>`<div class="nga-asset-pill">${a.name}</div>`).join('')}
+    `:'';
+  }
+  const grid=document.getElementById('nga-si-lga-grid');
+  grid.innerHTML='';
+  if(full){
+    lgas.forEach(name=>{
+      const d=document.createElement('div');
+      d.className='nga-lga-pill'; d.textContent=name;
+      d.style.borderLeftColor=color; grid.appendChild(d);
+    });
+  }
+}
+
+function ngaToggleZone(zoneName,el){
+  if(ngaActiveZone===zoneName){
+    ngaActiveZone=null;
+    document.querySelectorAll('.nga-zone-item').forEach(i=>i.classList.remove('active'));
+    document.querySelectorAll('.nga-state-path').forEach(p=>p.classList.remove('dimmed'));
+  }else{
+    ngaActiveZone=zoneName;
+    document.querySelectorAll('.nga-zone-item').forEach(i=>i.classList.remove('active'));
+    el.classList.add('active');
+    ngaStates.forEach(s=>{
+      const dim=s.zone!==zoneName;
+      document.querySelectorAll(`g[data-state-key="${s.state_key}"] .nga-state-path`).forEach(p=>p.classList.toggle('dimmed',dim));
+    });
+  }
+}
+
+
 
 /* ════════════════════════════════════════════
    DASHBOARD

@@ -589,6 +589,83 @@ svg{display:block;flex-shrink:0}
 .gallery-item-meta{font-size:10px;color:#fff;font-family:var(--mono)}
 
 /* ══════════════════════════════════════════════
+   MEDIA PREVIEW MODAL
+══════════════════════════════════════════════ */
+.media-modal-backdrop{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.88);
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+  backdrop-filter:blur(6px);
+  animation:mmFadeIn .15s ease;
+}
+@keyframes mmFadeIn{from{opacity:0}to{opacity:1}}
+.media-modal-box{
+  position:relative;
+  width:100%;max-width:900px;
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:var(--rl);
+  box-shadow:var(--shadow);
+  display:flex;flex-direction:column;
+  max-height:92vh;
+  overflow:hidden;
+}
+.media-modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  flex-shrink:0;gap:12px;
+}
+.media-modal-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.media-modal-title{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.media-modal-sub{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.4px}
+.media-modal-close{
+  width:32px;height:32px;border-radius:6px;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--txt2);display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;flex-shrink:0;
+}
+.media-modal-close:hover{background:var(--red-g);border-color:var(--red);color:var(--red)}
+.media-modal-stage{
+  position:relative;display:flex;align-items:center;
+  flex:1;min-height:0;background:#0a0d11;
+}
+.media-modal-content-wrap{
+  flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+  padding:12px 56px;
+  max-height:calc(92vh - 110px);
+  overflow:hidden;
+}
+.media-modal-content-wrap img{
+  max-width:100%;max-height:100%;
+  object-fit:contain;border-radius:6px;
+  display:block;
+}
+.media-modal-content-wrap iframe{
+  width:100%;height:500px;border:none;border-radius:6px;
+}
+.media-modal-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  transition:background .15s,border-color .15s;z-index:2;
+  flex-shrink:0;
+}
+.media-modal-nav:hover{background:var(--amber);border-color:var(--amber);color:#000}
+.media-modal-nav:disabled{opacity:.25;cursor:default;pointer-events:none}
+.media-modal-prev{left:10px}
+.media-modal-next{right:10px}
+.media-modal-footer{
+  padding:8px 16px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.media-modal-counter{
+  font-family:var(--mono);font-size:11px;color:var(--txt3);letter-spacing:.6px;
+}
+
+/* ══════════════════════════════════════════════
    SERVICE CHARGE ITEMS TABLE
 ══════════════════════════════════════════════ */
 .sc-item-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
@@ -1338,7 +1415,7 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
       <div class="screen" id="sc-media">
         <div class="ph">
           <div class="ph-row">
-            <div><div class="ph-title">Media Gallery</div><div class="ph-sub">All uploads organised by year and month — click any image to open in Drive</div></div>
+            <div><div class="ph-title">Media Gallery</div><div class="ph-sub">All uploads organised by year and month — click any image to preview</div></div>
             <div class="ph-acts">
               <select class="f-select" id="media-year-filter" onchange="renderGallery()" style="padding:7px 30px 7px 11px;font-size:13px;border-radius:6px">
                 <option value="all">All Years</option>
@@ -1355,6 +1432,44 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
           </div>
         </div>
         <div id="gallery-root"></div>
+      </div>
+
+      <!-- ─────────── MEDIA PREVIEW MODAL ─────────── -->
+      <div id="media-preview-modal" class="media-modal-backdrop" onclick="closeMediaModal(event)" style="display:none">
+        <div class="media-modal-box" onclick="event.stopPropagation()">
+          <!-- Header -->
+          <div class="media-modal-header">
+            <div class="media-modal-info">
+              <span id="media-modal-label" class="media-modal-title"></span>
+              <span id="media-modal-meta" class="media-modal-sub"></span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a id="media-modal-drive-link" href="#" target="_blank" class="btn btn-s" title="Open in Drive" style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Drive
+              </a>
+              <button class="media-modal-close" onclick="closeMediaModal()" title="Close (Esc)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Image area -->
+          <div class="media-modal-stage">
+            <button class="media-modal-nav media-modal-prev" id="media-modal-prev" onclick="shiftMediaModal(-1)" title="Previous">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="media-modal-content-wrap" id="media-modal-content">
+              <!-- filled by JS -->
+            </div>
+            <button class="media-modal-nav media-modal-next" id="media-modal-next" onclick="shiftMediaModal(1)" title="Next">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <!-- Counter -->
+          <div class="media-modal-footer">
+            <span id="media-modal-counter" class="media-modal-counter"></span>
+          </div>
+        </div>
       </div>
 
       <!-- ─────────── REPORTS ─────────── -->
@@ -3677,8 +3792,8 @@ function renderGallery() {
               }
 
               return `
-                <div class="gallery-item" style="cursor:${viewUrl?'pointer':'default'};position:relative;overflow:hidden"
-                  onclick="${viewUrl ? `window.open('${viewUrl}','_blank')` : ''}">
+                <div class="gallery-item" style="cursor:${viewUrl||imgSrc?'pointer':'default'};position:relative;overflow:hidden"
+                  onclick="openMediaModal(this)" data-media-id="${(item.id||item.fileId||'').replace(/"/g,'&quot;')}">
                   ${cardInner}
                   <div class="gallery-item-overlay">
                     <div>
@@ -4545,6 +4660,121 @@ function clParseCSVLine(line) {
   }
   result.push(cur);
   return result;
+}
+
+/* ════════════════════════════════════════════
+   MEDIA PREVIEW MODAL
+════════════════════════════════════════════ */
+let _mmItems  = [];   // flat list of all visible gallery items
+let _mmIndex  = 0;    // currently shown index
+
+function _buildGalleryFlatList() {
+  // Build a flat array of all items currently rendered in the gallery,
+  // in the same order they appear on screen (newest-first, year→month).
+  const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
+  const data = yearFilter === 'all' ? [...MEDIA_DATA] : MEDIA_DATA.filter(m => String(m.year) === String(yearFilter));
+  data.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  return data;
+}
+
+function openMediaModal(el) {
+  _mmItems = _buildGalleryFlatList();
+  const itemId = el.dataset.mediaId || '';
+  // Find index by id or fileId
+  let idx = _mmItems.findIndex(m => (m.id||m.fileId||'') === itemId);
+  if (idx === -1) idx = 0;
+  _mmIndex = idx;
+  _renderMediaModal();
+  const modal = document.getElementById('media-preview-modal');
+  if (modal) modal.style.display = 'flex';
+  document.addEventListener('keydown', _mmKeyHandler);
+}
+
+function closeMediaModal(evt) {
+  // If called from backdrop click, only close if the backdrop itself was clicked (not inner box)
+  if (evt && evt.currentTarget !== evt.target) return;
+  const modal = document.getElementById('media-preview-modal');
+  if (modal) modal.style.display = 'none';
+  document.removeEventListener('keydown', _mmKeyHandler);
+  // Clear content to stop any embedded video/iframe audio
+  const wrap = document.getElementById('media-modal-content');
+  if (wrap) wrap.innerHTML = '';
+}
+
+function shiftMediaModal(dir) {
+  _mmIndex = Math.max(0, Math.min(_mmItems.length - 1, _mmIndex + dir));
+  _renderMediaModal();
+}
+
+function _mmKeyHandler(e) {
+  if (e.key === 'Escape')      { closeMediaModal(); }
+  else if (e.key === 'ArrowLeft')  { shiftMediaModal(-1); }
+  else if (e.key === 'ArrowRight') { shiftMediaModal(1); }
+}
+
+function _renderMediaModal() {
+  const item = _mmItems[_mmIndex];
+  if (!item) return;
+
+  // Resolve file identifiers
+  const fid = item.fileId ||
+    (item.driveUrl         && item.driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) ||
+    (item.receiptViewUrl   && item.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) ||
+    (item.thumbnailUrl     && item.thumbnailUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1]);
+
+  const imgSrc  = fid ? driveImgUrl(fid)  : '';
+  const viewUrl = fid ? driveViewUrl(fid) : (item.driveUrl || '');
+  const isPdf   = item.type === 'pdf' || (item.fileName||'').toLowerCase().endsWith('.pdf');
+  const isVideo = item.type === 'video';
+  const label   = item.name || item.fileName || 'Untitled';
+  const tag     = item.tag || item.linkedEntityType || item.type || '';
+
+  // Header info
+  document.getElementById('media-modal-label').textContent = label;
+  document.getElementById('media-modal-meta').textContent  =
+    [fmtDate(item.date), tag].filter(Boolean).join(' · ');
+
+  // Drive link
+  const driveLink = document.getElementById('media-modal-drive-link');
+  if (viewUrl) {
+    driveLink.href = viewUrl;
+    driveLink.style.display = 'flex';
+  } else {
+    driveLink.style.display = 'none';
+  }
+
+  // Content
+  const wrap = document.getElementById('media-modal-content');
+  if (isPdf && fid) {
+    wrap.innerHTML = `<iframe src="https://drive.google.com/file/d/${fid}/preview" style="width:100%;height:520px;border:none;border-radius:6px"></iframe>`;
+  } else if (isVideo && fid) {
+    wrap.innerHTML = `<iframe src="https://drive.google.com/file/d/${fid}/preview" allow="autoplay" style="width:100%;height:420px;border:none;border-radius:6px"></iframe>`;
+  } else if (imgSrc) {
+    // Use a high-res thumbnail (sz=w1200 gives a much larger image)
+    const hiRes = fid ? `https://drive.google.com/thumbnail?id=${fid}&sz=w1200` : imgSrc;
+    wrap.innerHTML = `
+      <img
+        src="${hiRes}"
+        alt="${label}"
+        style="max-width:100%;max-height:calc(92vh - 130px);object-fit:contain;border-radius:6px;display:block"
+        onerror="this.src='${imgSrc}'"
+      >`;
+  } else {
+    wrap.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--txt3);padding:40px">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span style="font-family:var(--mono);font-size:11px">No preview available</span>
+        ${viewUrl ? `<a href="${viewUrl}" target="_blank" class="btn btn-s" style="margin-top:4px">Open in Drive</a>` : ''}
+      </div>`;
+  }
+
+  // Nav buttons
+  document.getElementById('media-modal-prev').disabled = _mmIndex === 0;
+  document.getElementById('media-modal-next').disabled = _mmIndex === _mmItems.length - 1;
+
+  // Counter
+  document.getElementById('media-modal-counter').textContent =
+    `${_mmIndex + 1} / ${_mmItems.length}`;
 }
 
 </script>

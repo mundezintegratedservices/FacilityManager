@@ -2548,45 +2548,147 @@ function filterIssues(f,el){
 }
 
 function viewIssue(id){
-  const i=ISSUES.find(x=>x.id===id); if(!i) return;
-  issueEditId=id;
-  setText('vi-title',`Issue ${i.id}`);
-  const statusColors={open:'r','in-progress':'a',resolved:'g'};
-  document.getElementById('vi-body').innerHTML=`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="chip ${statusColors[i.status]||'gr'}" style="font-size:12px;padding:4px 10px"><span class="chip-d"></span>${i.status.replace('-',' ')}</div>
-      <div class="chip gr">${i.cat}</div>
-      <div class="chip ${i.priority==='Urgent'?'r':i.priority==='Low'?'gr':'a'}">${i.priority}</div>
+  const i = ISSUES.find(x => String(x.id) === String(id)); if (!i) return;
+  issueEditId = id;
+  setText('vi-title', `Issue ${i.id}`);
+
+  const statusColors = { open:'r', 'in-progress':'a', resolved:'g' };
+  const priColor     = i.priority==='Urgent'?'r': i.priority==='Low'?'gr':'a';
+
+  // ── Build detail rows ─────────────────────────────────────────────────
+  const detailRows = [
+    ['Ticket ID',     i.id],
+    ['Unit',          i.unit||'—'],
+    ['Category',      i.cat||'—'],
+    ['Date Reported', fmtDate(i.reported)],
+    ['Priority',      i.priority||'—'],
+    ['Assigned To',   i.assigned||'Not assigned'],
+    i.cost ? ['Repair Cost', '₦' + Number(i.cost).toLocaleString()] : null,
+    i.notify ? ['Notification Sent To', i.notify] : null,
+  ].filter(Boolean);
+
+  // ── Look up linked media in MEDIA_DATA ────────────────────────────────
+  // Files are linked by linkedEntityId = issue ID, or by filename containing issue ID
+  const linkedMedia = MEDIA_DATA.filter(m =>
+    String(m.linkedEntityId) === String(id) ||
+    String(m.linkedEntityType) === 'Issue' && (m.fileName||'').includes(String(id))
+  );
+
+  // ── Build media HTML ───────────────────────────────────────────────────
+  let mediaHtml = '';
+  if (linkedMedia.length > 0) {
+    const cards = linkedMedia.map(m => {
+      // Extract file ID from wherever it's stored
+      const fid = m.fileId ||
+        (m.driveUrl      && m.driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) ||
+        (m.receiptViewUrl && m.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) ||
+        (m.thumbnailUrl   && m.thumbnailUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1]);
+
+      const viewUrl    = fid
+        ? `https://drive.google.com/file/d/${fid}/view`
+        : (m.driveUrl || '');
+      const thumbSrc   = fid
+        ? `https://drive.google.com/thumbnail?id=${fid}&sz=w600`
+        : '';
+      const isPdf      = m.type === 'pdf' || (m.fileName||'').toLowerCase().endsWith('.pdf');
+      const isVideo    = m.type === 'video';
+      const label      = (m.name || m.fileName || 'File').replace(/\.[^.]+$/, '');
+      const uploadDate = fmtDate(m.date || m.createdAt);
+
+      let preview = '';
+      if (isPdf) {
+        preview = `
+          <div style="display:flex;align-items:center;justify-content:center;height:120px;background:rgba(239,68,68,.07);border-radius:6px;margin-bottom:8px;flex-direction:column;gap:6px">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span style="font-size:10px;color:var(--red);font-family:var(--mono);font-weight:600">PDF Document</span>
+          </div>`;
+      } else if (isVideo) {
+        preview = `
+          <div style="display:flex;align-items:center;justify-content:center;height:120px;background:rgba(59,130,246,.07);border-radius:6px;margin-bottom:8px;flex-direction:column;gap:6px">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span style="font-size:10px;color:var(--blue);font-family:var(--mono);font-weight:600">Video File</span>
+          </div>`;
+      } else if (thumbSrc) {
+        // Image thumbnail — same sz=w600 pattern as SC payment modal
+        preview = `
+          <img
+            src="${thumbSrc}"
+            alt="${label}"
+            loading="lazy"
+            style="width:100%;max-height:220px;object-fit:cover;border-radius:6px;margin-bottom:8px;background:var(--card);display:block"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+          >
+          <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--card);border-radius:6px;margin-bottom:8px;flex-direction:column;gap:6px">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span style="font-size:10px;color:var(--txt3);font-family:var(--mono)">Preview unavailable</span>
+          </div>`;
+      } else {
+        preview = `
+          <div style="display:flex;align-items:center;justify-content:center;height:120px;background:var(--card);border-radius:6px;margin-bottom:8px;flex-direction:column;gap:6px">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span style="font-size:10px;color:var(--txt3);font-family:var(--mono)">No preview</span>
+          </div>`;
+      }
+
+      return `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--card)">
+          ${preview}
+          <div style="font-size:12px;font-weight:500;color:var(--txt);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+          <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">${uploadDate}</div>
+          ${viewUrl ? `
+            <a href="${viewUrl}" target="_blank" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--amber);text-decoration:none;font-weight:500">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Open in Drive
+            </a>` : ''}
+        </div>`;
+    }).join('');
+
+    mediaHtml = `
+      <div style="margin-top:16px;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">
+          Attached Media · ${linkedMedia.length} file${linkedMedia.length!==1?'s':''}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+          ${cards}
+        </div>
+      </div>`;
+  } else {
+    // No media found — show a helpful empty state with a sync hint
+    mediaHtml = `
+      <div style="margin-top:16px;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Attached Media</div>
+        <div style="display:flex;align-items:center;gap:10px;color:var(--txt3);font-size:12px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          No media attached to this issue. Upload files via Edit Issue or use Sync Drive in the gallery.
+        </div>
+      </div>`;
+  }
+
+  // ── Render full modal body ─────────────────────────────────────────────
+  document.getElementById('vi-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="chip ${statusColors[i.status]||'gr'}" style="font-size:12px;padding:4px 10px"><span class="chip-d"></span>${(i.status||'open').replace('-',' ')}</div>
+      <div class="chip gr" style="font-size:12px;padding:4px 10px">${i.cat||'General'}</div>
+      <div class="chip ${priColor}" style="font-size:12px;padding:4px 10px">${i.priority||'Normal'}</div>
     </div>
-    <div class="g2" style="margin-bottom:14px">
-      <div style="background:var(--card);padding:12px;border-radius:8px">
-        <div class="f-label" style="margin-bottom:5px">Unit</div>
-        <div style="font-size:14px;font-weight:500">${i.unit}</div>
-      </div>
-      <div style="background:var(--card);padding:12px;border-radius:8px">
-        <div class="f-label" style="margin-bottom:5px">Date Reported</div>
-        <div style="font-size:14px;font-weight:500">${fmtDate(i.reported)}</div>
-      </div>
+    <div style="background:var(--card);padding:14px;border-radius:8px;margin-bottom:12px">
+      <div class="f-label" style="margin-bottom:6px">Description</div>
+      <div style="font-size:14px;line-height:1.65;color:var(--txt)">${i.desc||'—'}</div>
     </div>
-    <div style="background:var(--card);padding:12px;border-radius:8px;margin-bottom:12px">
-      <div class="f-label" style="margin-bottom:5px">Description</div>
-      <div style="font-size:14px;line-height:1.6">${i.desc}</div>
-    </div>
-    <div class="g2" style="margin-bottom:12px">
-      <div style="background:var(--card);padding:12px;border-radius:8px">
-        <div class="f-label" style="margin-bottom:5px">Assigned To</div>
-        <div style="font-size:13px">${i.assigned||'Not assigned'}</div>
-      </div>
-      <div style="background:var(--card);padding:12px;border-radius:8px">
-        <div class="f-label" style="margin-bottom:5px">Cost</div>
-        <div style="font-size:14px;font-weight:500;color:${i.cost?'var(--amber)':'var(--txt3)'}">${i.cost?'₦'+Number(i.cost).toLocaleString():'Not yet recorded'}</div>
-      </div>
-    </div>
-    ${i.notes?`<div style="background:var(--card);padding:12px;border-radius:8px;margin-bottom:12px"><div class="f-label" style="margin-bottom:5px">Notes / Remarks</div><div style="font-size:13px;color:var(--txt2)">${i.notes}</div></div>`:''}
-    <div style="background:var(--card);padding:12px;border-radius:8px">
-      <div class="f-label" style="margin-bottom:8px">Media / Receipts</div>
-      <div style="font-size:12px;color:var(--txt3);font-style:italic">Attached files will appear here once uploaded to Google Drive</div>
-    </div>`;
+    <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
+      ${detailRows.map(([label, val]) => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--txt3);font-size:11px;font-family:var(--mono);width:38%;text-transform:uppercase;letter-spacing:.5px;vertical-align:top">${label}</td>
+          <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--txt);font-size:13px;font-weight:500;vertical-align:top">${val}</td>
+        </tr>`).join('')}
+    </table>
+    ${i.notes ? `
+    <div style="background:var(--card);padding:12px;border-radius:8px;margin-top:12px">
+      <div class="f-label" style="margin-bottom:5px">Notes / Remarks</div>
+      <div style="font-size:13px;color:var(--txt2);line-height:1.6">${i.notes}</div>
+    </div>` : ''}
+    ${mediaHtml}`;
+
   openMdl('mdl-view-issue');
 }
 

@@ -2928,7 +2928,8 @@ async function submitTenant(){
 ════════════════════════════════════════════ */
 function renderIssues(filter){
   const tbody=document.getElementById('iss-tbody'); if(!tbody) return;
-  const list=filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter);
+  const list=(filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter))
+    .slice().sort((a,b)=>new Date(b.reported||0)-new Date(a.reported||0));
   tbody.innerHTML=list.map(i=>`
     <tr>
       <td class="mn am">${i.id}</td>

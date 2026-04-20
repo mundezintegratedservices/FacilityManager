@@ -2098,7 +2098,7 @@ async function loadSCPayments() {
       receipt: p.receipt === 'TRUE' || p.receipt === true || !!p.receiptFileId,
       receiptFileId:  p.receiptFileId  || '',
       receiptViewUrl: p.receiptViewUrl || p.driveUrl || '',
-    })).sort((a, b) => new Date(b.date) - new Date(a.date));
+    })).sort((a, b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   }
 }
 
@@ -2116,7 +2116,7 @@ async function loadMedia() {
       ...m,
       year: parseInt(m.year) || new Date().getFullYear(),
       month: parseInt(m.month) || new Date().getMonth() + 1,
-    })).sort((a, b) => new Date(b.date) - new Date(a.date));
+    })).sort((a, b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   }
 }
 
@@ -2163,7 +2163,7 @@ async function loadProjects() {
             out: parseFloat(e.outAmount) || 0,
             cat: e.category || clCategorize(e.item),
           }))
-          .sort((a, b) => new Date(a.date) - new Date(b.date)),
+          .sort((a, b) => (parseUKDate(a.date)||0) - (parseUKDate(b.date)||0)),
       }));
     }
   }
@@ -2719,7 +2719,7 @@ function renderDashboard(){
     });
 
     // Sort all events newest first
-    events.sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+    events.sort((a, b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
 
     if (!events.length) {
       actEl.innerHTML = '<div class="empty"><div>No recent activity</div></div>';
@@ -2851,7 +2851,7 @@ function editTenant(id){
   setVal('ten-name',t.name); setVal('ten-phone',t.phone); setVal('ten-email',t.email||'');
   buildApartmentDropdown('ten-apt', t.unit||'');
   setVal('ten-spouse',t.spouse||''); setVal('ten-spouse-ph',t.spousePhone||'');
-  setVal('ten-since',t.since); setVal('ten-rent',t.rent||0); setVal('ten-notes',t.notes||'');
+  setVal('ten-since',ukToPicker(t.since)); setVal('ten-rent',t.rent||0); setVal('ten-notes',t.notes||'');
   // Show status fields in edit mode
   document.getElementById('ten-status-section').style.display='block';
   setVal('ten-status',t.status||'active');
@@ -2892,7 +2892,7 @@ async function submitTenant(){
     name,
     phone: getVal('ten-phone'),
     email: getVal('ten-email'),
-    since: getVal('ten-since'),
+    since: pickerToUK(getVal('ten-since')),
     rent: Number(getVal('ten-rent'))||0,
     status: isEdit ? (getVal('ten-status')||'active') : 'active',
     scStatus: isEdit ? (getVal('ten-sc-status')||'pending') : 'pending',
@@ -2929,7 +2929,7 @@ async function submitTenant(){
 function renderIssues(filter){
   const tbody=document.getElementById('iss-tbody'); if(!tbody) return;
   const list=(filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter))
-    .slice().sort((a,b)=>new Date(b.reported||0)-new Date(a.reported||0));
+    .slice().sort((a,b)=>(parseUKDate(b.reported)||0)-(parseUKDate(a.reported)||0));
   tbody.innerHTML=list.map(i=>`
     <tr>
       <td class="mn am">${i.id}</td>
@@ -3122,7 +3122,7 @@ function editIssue(id){
   setText('mdl-issue-title',`Edit Issue ${i.id}`);
   buildUnitDropdown('iss-unit', i.unit||'General');
   setVal('iss-cat',i.cat); setVal('iss-desc',i.desc);
-  setVal('iss-date',i.reported); setVal('iss-pri',i.priority); setVal('iss-assign',i.assigned||'');
+  setVal('iss-date',ukToPicker(i.reported)); setVal('iss-pri',i.priority); setVal('iss-assign',i.assigned||'');
   setVal('iss-cost',i.cost||''); setVal('iss-status',i.status); setVal('iss-notes',i.notes||'');
   setVal('iss-notify',i.notify||'');
   const f=document.getElementById('iss-files'); if(f) f.value='';
@@ -3137,7 +3137,7 @@ async function submitIssue(){
     unit: getVal('iss-unit'),
     desc,
     cat: getVal('iss-cat'),
-    reported: getVal('iss-date'),
+    reported: pickerToUK(getVal('iss-date')),
     priority: getVal('iss-pri'),
     assigned: getVal('iss-assign'),
     cost: getVal('iss-cost')||null,
@@ -3177,7 +3177,7 @@ async function submitIssue(){
               name: desc.slice(0,40),
               type: file.type.startsWith('video')?'video':file.type==='application/pdf'?'pdf':'image',
               tag: 'Issue',
-              date: payload.reported||new Date().toISOString().split('T')[0],
+              date: payload.reported||toUKDateString(new Date()),
               fileId: upRes.fileId||'',
               fileName: file.name,
               driveUrl: upRes.driveUrl||'',
@@ -3458,7 +3458,7 @@ function editSCPayment(id) {
   buildTenantDropdown('pay-ten', p.unit + ' — ' + p.tenant);
   setVal('pay-type', p.type);
   setVal('pay-amt', p.amount);
-  setVal('pay-date', p.date);
+  setVal('pay-date', ukToPicker(p.date));
   setVal('pay-period', p.period||'');
   setVal('pay-year', p.year);
   setVal('pay-notes', p.notes||'');
@@ -3473,7 +3473,7 @@ async function submitPayment() {
   if (!tenVal) { toast('Please select a tenant', 'r'); return; }
   const type   = getVal('pay-type');
   const amt    = Number(getVal('pay-amt'));
-  const date   = getVal('pay-date');
+  const date   = pickerToUK(getVal('pay-date'));
   const period = getVal('pay-period');
   const year   = Number(getVal('pay-year'));
   const notes  = getVal('pay-notes');
@@ -3714,7 +3714,7 @@ function renderGallery() {
   const data = yearFilter === 'all' ? [...MEDIA_DATA] : MEDIA_DATA.filter(m => String(m.year) === String(yearFilter));
 
   // Sort newest first then group by year → month
-  data.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+  data.sort((a,b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   const byYear = {};
   data.forEach(m => {
     const yr = m.year || new Date().getFullYear();
@@ -3833,8 +3833,7 @@ async function openMediaUpload() {
             name: file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g,' '),
             type: file.type.startsWith('video')?'video':file.type==='application/pdf'?'pdf':'image',
             tag: 'General',
-            date: d.toISOString().split('T')[0],
-            fileId: upRes.fileId||'', fileName: file.name,
+            date: toUKDateString(d),
             driveUrl: upRes.driveUrl||'',
             receiptViewUrl: upRes.viewUrl||'',
             thumbnailUrl: '', linkedEntityId: '', linkedEntityType: '',
@@ -3875,7 +3874,7 @@ async function syncMediaFromDrive() {
             name: f.fileName.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
             type: f.mimeType?.startsWith('video') ? 'video' : f.mimeType === 'application/pdf' ? 'pdf' : 'image',
             tag: f.folder || 'General',
-            date: d.toISOString().split('T')[0],
+            date: toUKDateString(d),
             fileId: f.fileId,
             fileName: f.fileName,
             driveUrl: f.driveUrl || '',
@@ -3943,7 +3942,8 @@ function fileToBase64(file){
 
 function fmtDateShort(s){
   if(!s) return '—';
-  const d=new Date(s); const now=new Date();
+  const d=parseUKDate(s); if(!d) return '—';
+  const now=new Date();
   const diff=Math.floor((now-d)/86400000);
   if(diff===0) return 'Today';
   if(diff===1) return 'Yesterday';
@@ -4074,7 +4074,38 @@ function toast(msg,type='i'){
 /* ════════════════════════════════════════════
    UTILS
 ════════════════════════════════════════════ */
-function fmtDate(s){if(!s)return'—';const d=new Date(s);return d.toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'});}
+/* Parse a user-defined date that may be DD/MM/YYYY (UK), YYYY-MM-DD, or ISO */
+function parseUKDate(s){
+  if(!s) return null;
+  if(s instanceof Date) return isNaN(s)?null:s;
+  const str=String(s).trim();
+  // DD/MM/YYYY
+  const ukMatch=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(ukMatch){return new Date(+ukMatch[3],+ukMatch[2]-1,+ukMatch[1]);}
+  // YYYY-MM-DD (no time component — treat as local to avoid UTC-shift)
+  const isoDate=str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(isoDate){return new Date(+isoDate[1],+isoDate[2]-1,+isoDate[3]);}
+  // Fall back for full ISO timestamps (system dates)
+  const d=new Date(s);
+  return isNaN(d)?null:d;
+}
+/* Format a date as DD/MM/YYYY for storage in user-defined columns */
+function toUKDateString(d){
+  if(!(d instanceof Date)||isNaN(d)) return '';
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+/* Convert a date-picker value (YYYY-MM-DD) to UK string DD/MM/YYYY */
+function pickerToUK(v){if(!v)return'';const p=v.split('-');if(p.length!==3)return v;return`${p[2]}/${p[1]}/${p[0]}`;}
+/* Convert a UK date string DD/MM/YYYY to date-picker value YYYY-MM-DD */
+function ukToPicker(s){
+  if(!s)return'';
+  const d=parseUKDate(s);
+  if(!d)return'';
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(s){if(!s)return'—';const d=parseUKDate(s);if(!d)return'—';return d.toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'});}
 function setText(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function setVal(id,v){const e=document.getElementById(id);if(e)e.value=v;}
 function getVal(id){const e=document.getElementById(id);return e?e.value:'';}
@@ -4109,9 +4140,14 @@ function clParseDate(s) {
   const parts = s.split('-');
   if (parts.length !== 3) return null;
   let [a,b,c] = parts;
-  if (c.length === 4) return c+'-'+b.padStart(2,'0')+'-'+a.padStart(2,'0');
-  if (a.length === 2 && b.length === 2) return '20'+(c.length===2?c:'23')+'-'+b.padStart(2,'0')+'-'+a.padStart(2,'0');
-  return s;
+  let day,mon,year;
+  // YYYY-MM-DD
+  if (a.length === 4) { year=a; mon=b; day=c; }
+  // DD-MM-YY or DD-MM-YYYY
+  else if (c.length === 4) { day=a; mon=b; year=c; }
+  else if (c.length === 2) { day=a; mon=b; year='20'+c; }
+  else return null;
+  return day.padStart(2,'0')+'/'+mon.padStart(2,'0')+'/'+year;
 }
 
 function clFmt(n) {
@@ -4155,8 +4191,9 @@ function clComputeStats(rows) {
 function clBuildMonthFlow(rows) {
   const map = {};
   rows.forEach(r => {
-    const mo = r.date ? r.date.slice(0,7) : null;
-    if (!mo) return;
+    const d = parseUKDate(r.date);
+    if (!d) return;
+    const mo = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     if (!map[mo]) map[mo] = {in:0,out:0};
     map[mo].in += r.in; map[mo].out += r.out;
   });
@@ -4264,13 +4301,13 @@ function clRenderTx(rows) {
     if (clCurrentFilter === 'in') return r.in > 0;
     if (clCurrentFilter === 'out') return r.out > 0;
     return true;
-  }).sort((a,b) => (a.date||'zzzz').localeCompare(b.date||'zzzz'));
+  }).sort((a,b) => (parseUKDate(a.date)||0) - (parseUKDate(b.date)||0));
   const tbody = document.getElementById('cl-txBody');
   if (!tbody) return;
   tbody.innerHTML = clFilteredRows.slice(0, 300).map((r, idx) => {
     const p = clProjects[r.pid];
     const badge = showProject ? '<td><span style="background:'+p.color+'22;color:'+p.color+';padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono)">'+p.name.split('—')[0].trim()+'</span></td>' : '';
-    const dateDisplay = r.date ? r.date.split('-').reverse().join('/') : '<span style="color:var(--red);font-size:10px">no date</span>';
+    const dateDisplay = r.date ? r.date : '<span style="color:var(--red);font-size:10px">no date</span>';
     const inDisplay = r.in > 0 ? clFmt(r.in) : '<span class="cl-tx-empty">—</span>';
     const outDisplay = r.out > 0 ? clFmt(r.out) : '<span class="cl-tx-empty">—</span>';
     return '<tr>'
@@ -4383,8 +4420,7 @@ function clOpenEditModal(idx) {
   badge.style.background = p.color + '22';
   badge.style.color = p.color;
   document.getElementById('cl-editItem').value = r.item || '';
-  const dp = r.date ? r.date.split('-') : [];
-  document.getElementById('cl-editDate').value = dp.length === 3 ? dp[2]+'/'+dp[1]+'/'+dp[0] : '';
+  document.getElementById('cl-editDate').value = r.date || '';
   document.getElementById('cl-editIn').value = r.in || '';
   document.getElementById('cl-editOut').value = r.out || '';
   document.getElementById('cl-editCat').value = r.cat;
@@ -4524,7 +4560,7 @@ function clDownloadProjectXLSX(projName, rows) {
   let runningNet = 0;
   rows
     .filter(r => r.in > 0 || r.out > 0)
-    .sort((a, b) => new Date(a.date||0) - new Date(b.date||0))
+    .sort((a, b) => (parseUKDate(a.date)||0) - (parseUKDate(b.date)||0))
     .forEach(r => {
       runningNet += r.in - r.out;
       csvRows.push([
@@ -4674,7 +4710,7 @@ function _buildGalleryFlatList() {
   // in the same order they appear on screen (newest-first, year→month).
   const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
   const data = yearFilter === 'all' ? [...MEDIA_DATA] : MEDIA_DATA.filter(m => String(m.year) === String(yearFilter));
-  data.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  data.sort((a, b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   return data;
 }
 

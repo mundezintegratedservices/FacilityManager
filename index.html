@@ -935,6 +935,22 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
 .cl-btn-danger:hover{background:var(--red-g)!important}
 @media(max-width:820px){#sc-projects .cl-metrics{grid-template-columns:1fr 1fr}#sc-projects .cl-charts-row{grid-template-columns:1fr}}
 @media(max-width:500px){#sc-projects .cl-metrics{grid-template-columns:1fr 1fr}#sc-projects .cl-tbl th:nth-child(4),#sc-projects .cl-tbl td:nth-child(4){display:none}}
+/* ── PROJECT MEDIA PANEL ── */
+.cl-media-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:24px}
+.cl-media-panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.cl-media-panel-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt3);display:flex;align-items:center;gap:8px}
+.cl-media-panel-body{padding:14px 18px}
+.cl-proj-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.cl-proj-gallery-item{aspect-ratio:1;border-radius:8px;overflow:hidden;position:relative;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:border-color .15s,transform .1s}
+.cl-proj-gallery-item:hover{border-color:var(--amber);transform:scale(1.02)}
+.cl-proj-gallery-item-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:18px 6px 6px;opacity:0;transition:opacity .2s}
+.cl-proj-gallery-item:hover .cl-proj-gallery-item-overlay{opacity:1}
+.cl-proj-gallery-meta{font-family:var(--mono);font-size:9px;color:#fff;line-height:1.3}
+.cl-proj-gallery-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.cl-proj-upload-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .12s}
+.cl-proj-upload-btn:hover{background:var(--amber-g)}
+.cl-proj-upload-btn:disabled{border-color:var(--border2);color:var(--txt3);cursor:default;background:transparent}
+.cl-proj-empty{text-align:center;padding:28px 0;color:var(--txt3);font-size:12px}
 </style>
 </head>
 <body>
@@ -1340,6 +1356,10 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
                 Export
               </button>
               <input type="file" id="cl-import-input" accept=".csv" style="display:none" onchange="clHandleImport(this)">
+              <button class="btn btn-s" id="cl-upload-media-btn" onclick="clUploadProjectMedia()" disabled title="Select a project to upload media">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Upload Media
+              </button>
               <button class="btn btn-p" onclick="clOpenModal()">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Project
               </button>
@@ -1386,6 +1406,22 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
               </tr></thead>
               <tbody id="cl-txBody"></tbody>
             </table>
+          </div>
+        </div>
+        <!-- Project Media Gallery Panel -->
+        <div class="cl-media-panel" id="cl-media-panel">
+          <div class="cl-media-panel-header">
+            <div class="cl-media-panel-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span id="cl-media-panel-title-text">Project Media</span>
+            </div>
+            <button class="cl-proj-upload-btn" id="cl-proj-upload-inline-btn" onclick="clUploadProjectMedia()" disabled>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload to project
+            </button>
+          </div>
+          <div class="cl-media-panel-body" id="cl-media-panel-body">
+            <div class="cl-proj-empty">Select a project to see its media</div>
           </div>
         </div>
       </div>
@@ -3699,15 +3735,11 @@ function renderGallery() {
   const root = document.getElementById('gallery-root'); if (!root) return;
   const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
 
-  // Populate year filter options dynamically — include years from payment receipts too
+  // Populate year filter options dynamically — include payment receipt years
   const yrSel = document.getElementById('media-year-filter');
   if (yrSel) {
-    const mediaYears = MEDIA_DATA.map(m => {
-      const pd = parseUKDate(m.date); return pd ? pd.getFullYear() : (m.year || new Date().getFullYear());
-    });
-    const payYears = SC_PAYMENTS
-      .filter(p => p.receiptFileId || p.receiptViewUrl)
-      .map(p => { const pd = parseUKDate(p.date); return pd ? pd.getFullYear() : new Date().getFullYear(); });
+    const mediaYears = MEDIA_DATA.map(m => { const pd = parseUKDate(m.date); return pd ? pd.getFullYear() : (m.year || new Date().getFullYear()); });
+    const payYears = SC_PAYMENTS.filter(p => p.receiptFileId || p.receiptViewUrl).map(p => { const pd = parseUKDate(p.date); return pd ? pd.getFullYear() : new Date().getFullYear(); });
     const allYears = [...new Set([...mediaYears, ...payYears])].sort((a,b) => b-a);
     const existing = [...yrSel.options].map(o => String(o.value));
     allYears.forEach(y => {
@@ -3718,9 +3750,11 @@ function renderGallery() {
     });
   }
 
+  // Populate year filter — include payment receipt years too
+  // (year filter dropdown population block above only covers MEDIA_DATA;
+  //  payment years are added below after we compute allGalleryData)
+
   // Synthesise payment receipt entries from SC_PAYMENTS into the gallery.
-  // Payment receipts are stored on the SC_Payments row (not in the Media sheet),
-  // so we build lightweight gallery items here using the user-defined payment date.
   const existingPayIds = new Set(MEDIA_DATA.map(m => m.linkedEntityId).filter(Boolean));
   const paymentMediaItems = SC_PAYMENTS
     .filter(p => (p.receiptFileId || p.receiptViewUrl) && !existingPayIds.has(p.id))
@@ -3733,25 +3767,18 @@ function renderGallery() {
       return {
         id: 'pay-synth-' + p.id,
         assetId: p.assetId,
-        year: pd.getFullYear(),
-        month: pd.getMonth() + 1,
-        date: p.date,
-        name: ('Receipt \u2014 ' + (p.tenant || p.unit || '') + ' ' + (p.period || p.date || '')).trim(),
-        type,
-        tag: 'Payment',
-        fileId: fid,
-        fileName: fid ? ('receipt_' + p.id) : '',
+        year: pd.getFullYear(), month: pd.getMonth() + 1, date: p.date,
+        name: ('Receipt — ' + (p.tenant || p.unit || '') + ' ' + (p.period || p.date || '')).trim(),
+        type, tag: 'Payment', fileId: fid, fileName: fid ? ('receipt_' + p.id) : '',
         driveUrl: p.receiptViewUrl || (fid ? ('https://drive.google.com/file/d/' + fid + '/view') : ''),
-        receiptViewUrl: p.receiptViewUrl || '',
-        thumbnailUrl: '',
-        linkedEntityId: p.id,
-        linkedEntityType: 'Payment',
+        receiptViewUrl: p.receiptViewUrl || '', thumbnailUrl: '',
+        linkedEntityId: p.id, linkedEntityType: 'Payment',
       };
     });
 
   const allGalleryData = [...MEDIA_DATA, ...paymentMediaItems];
 
-  // Apply year filter using parsed date for accuracy (not stored m.year)
+  // Apply year filter using parsed date (self-heals stale stored year values)
   const data = yearFilter === 'all'
     ? [...allGalleryData]
     : allGalleryData.filter(m => {
@@ -3760,10 +3787,7 @@ function renderGallery() {
         return String(yr) === String(yearFilter);
       });
 
-  // Sort newest first then group by year → month
-  // Always derive year/month from the authoritative user-defined date field,
-  // falling back to stored year/month only if the date can't be parsed.
-  // This self-heals any records whose stored year/month was written incorrectly.
+  // Sort newest first then group by year → month — always derive from date field
   data.sort((a,b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   const byYear = {};
   data.forEach(m => {
@@ -4375,6 +4399,150 @@ function clRenderTx(rows) {
   }).join('');
 }
 
+/* ════════════════════════════════════════════
+   PROJECT MEDIA — upload, render, gallery
+════════════════════════════════════════════ */
+
+async function clUploadProjectMedia() {
+  if (clCurrentProject === 'all') { toast('Select a specific project first', 'i'); return; }
+  const proj = clProjects[clCurrentProject];
+  if (!proj) return;
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,video/*,.pdf';
+  input.multiple = true;
+  input.onchange = async () => {
+    if (!input.files.length) return;
+    setLoading(true);
+    let uploaded = 0;
+    const now = new Date();
+    const ukDate = toUKDateString(now);
+    const yrNum = now.getFullYear();
+    const moNum = now.getMonth() + 1;
+    const monthPad = String(moNum).padStart(2, '0');
+    const folderName = proj.name + ' \u2014 ' + yrNum + '-' + monthPad;
+
+    for (const file of Array.from(input.files).slice(0, 10)) {
+      try {
+        const b64 = await fileToBase64(file);
+        const upRes = await callAppScript('uploadFile', {
+          fileData: b64,
+          fileName: proj.name.replace(/[^a-zA-Z0-9 _-]/g, '_') + '_' + Date.now() + '_' + file.name,
+          mimeType: file.type,
+          folder: folderName
+        });
+        if (upRes.success) {
+          const rec = {
+            id: 'MED-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+            assetId: S.currentAsset.id,
+            year: yrNum, month: moNum, date: ukDate,
+            name: proj.name + ' \u2014 ' + file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
+            type: file.type.startsWith('video') ? 'video' : file.type === 'application/pdf' ? 'pdf' : 'image',
+            tag: 'Project',
+            fileId: upRes.fileId || '',
+            fileName: file.name,
+            driveUrl: upRes.driveUrl || '',
+            receiptViewUrl: upRes.viewUrl || '',
+            thumbnailUrl: '',
+            linkedEntityId: proj.id || '',
+            linkedEntityType: 'Project',
+            linkedEntityName: proj.name,
+            createdAt: new Date().toISOString()
+          };
+          const saveRes = await createRecord('Media', rec);
+          if (saveRes.success) { MEDIA_DATA.push(rec); uploaded++; }
+        }
+      } catch(e) { console.warn('Project media upload error:', e); }
+    }
+    setLoading(false);
+    renderProjectGallery();
+    renderGallery();
+    toast(uploaded + ' file' + (uploaded !== 1 ? 's' : '') + ' uploaded to "' + proj.name + '"', 's');
+  };
+  input.click();
+}
+
+function renderProjectGallery() {
+  const body    = document.getElementById('cl-media-panel-body');
+  const titleEl = document.getElementById('cl-media-panel-title-text');
+  const inlineBtn = document.getElementById('cl-proj-upload-inline-btn');
+  const headerBtn = document.getElementById('cl-upload-media-btn');
+  if (!body) return;
+
+  if (clCurrentProject === 'all') {
+    if (titleEl) titleEl.textContent = 'Project Media';
+    if (inlineBtn) inlineBtn.disabled = true;
+    if (headerBtn) headerBtn.disabled = true;
+    body.innerHTML = '<div class="cl-proj-empty">Select a project tab to view and upload its media</div>';
+    return;
+  }
+
+  const proj = clProjects[clCurrentProject];
+  if (!proj) return;
+
+  if (titleEl) titleEl.textContent = proj.name + ' \u2014 Media';
+  if (inlineBtn) inlineBtn.disabled = false;
+  if (headerBtn) headerBtn.disabled = false;
+
+  const items = MEDIA_DATA.filter(m =>
+    m.linkedEntityId && proj.id &&
+    String(m.linkedEntityId) === String(proj.id) &&
+    m.linkedEntityType === 'Project'
+  ).sort((a, b) => (parseUKDate(b.date) || 0) - (parseUKDate(a.date) || 0));
+
+  if (!items.length) {
+    body.innerHTML =
+      '<div class="cl-proj-empty">No media yet for <strong style="color:var(--txt)">' +
+      proj.name + '</strong> \u2014 use the Upload button to add photos, videos or documents.</div>';
+    return;
+  }
+
+  const cards = items.map(function(item) {
+    const fid = item.fileId ||
+      (item.driveUrl && item.driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) ||
+      (item.receiptViewUrl && item.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]);
+    const imgSrc  = fid ? driveImgUrl(fid) : '';
+    const isPdf   = item.type === 'pdf' || (item.fileName || '').toLowerCase().endsWith('.pdf');
+    const isVideo = item.type === 'video';
+    const label   = (item.name || item.fileName || '').slice(0, 28);
+    const dateStr = fmtDate(item.date);
+    const itemId  = (item.id || item.fileId || '').replace(/"/g, '&quot;');
+
+    let inner;
+    if (isPdf) {
+      inner = '<div class="cl-proj-gallery-ph">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5">' +
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<polyline points="14 2 14 8 20 8"/></svg>' +
+        '<span style="font-size:9px;color:var(--red);font-family:var(--mono);font-weight:600">PDF</span></div>';
+    } else if (isVideo) {
+      inner = '<div class="cl-proj-gallery-ph">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5">' +
+        '<polygon points="5 3 19 12 5 21 5 3"/></svg>' +
+        '<span style="font-size:9px;color:var(--blue);font-family:var(--mono);font-weight:600">VIDEO</span></div>';
+    } else if (imgSrc) {
+      // Use a div with a background-image to completely avoid onerror quote nesting issues
+      inner = '<div style="position:absolute;inset:0;background-image:url(\'' + imgSrc + '\');' +
+        'background-size:cover;background-position:center"></div>';
+    } else {
+      inner = '<div class="cl-proj-gallery-ph">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5">' +
+        '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>' +
+        '<polyline points="21 15 16 10 5 21"/></svg></div>';
+    }
+
+    return '<div class="cl-proj-gallery-item" onclick="openMediaModal(this)" data-media-id="' + itemId + '">' +
+      inner +
+      '<div class="cl-proj-gallery-item-overlay">' +
+      '<div class="cl-proj-gallery-meta" style="font-weight:600;margin-bottom:1px">' + label + '</div>' +
+      '<div class="cl-proj-gallery-meta" style="opacity:.75">' + dateStr + '</div>' +
+      '</div></div>';
+  });
+
+  body.innerHTML = '<div class="cl-proj-gallery">' + cards.join('') + '</div>';
+}
+
 function clUpdateAddBtn() {
   const btn = document.getElementById('cl-addEntryBtn');
   if (!btn) return;
@@ -4390,6 +4558,7 @@ function clRender() {
   clRenderCats(rows);
   clRenderTx(rows);
   clUpdateAddBtn();
+  renderProjectGallery();
   const titleEl = document.getElementById('cl-flowTitle');
   if (titleEl) titleEl.textContent = clCurrentProject === 'all' ? 'Combined monthly cash flow' : 'Monthly cash flow';
   // Update sidebar badge
@@ -4757,13 +4926,8 @@ let _mmItems  = [];   // flat list of all visible gallery items
 let _mmIndex  = 0;    // currently shown index
 
 function _buildGalleryFlatList() {
-  // Build a flat array of all items currently rendered in the gallery,
-  // in the same order they appear on screen (newest-first, year→month).
-  // Must mirror the same merge logic as renderGallery() so modal navigation
-  // stays in sync with what is actually displayed on screen.
+  // Mirrors renderGallery() merge logic so modal prev/next stays in sync.
   const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
-
-  // Merge in payment receipts (same logic as renderGallery)
   const existingPayIds = new Set(MEDIA_DATA.map(m => m.linkedEntityId).filter(Boolean));
   const payItems = SC_PAYMENTS
     .filter(p => (p.receiptFileId || p.receiptViewUrl) && !existingPayIds.has(p.id))
@@ -4773,18 +4937,15 @@ function _buildGalleryFlatList() {
         (p.receiptViewUrl && p.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) || '';
       const ext = (p.receiptViewUrl || '').toLowerCase();
       return {
-        id: 'pay-synth-' + p.id,
-        assetId: p.assetId, year: pd.getFullYear(), month: pd.getMonth() + 1,
-        date: p.date,
+        id: 'pay-synth-' + p.id, assetId: p.assetId,
+        year: pd.getFullYear(), month: pd.getMonth() + 1, date: p.date,
         name: ('Receipt — ' + (p.tenant || p.unit || '') + ' ' + (p.period || p.date || '')).trim(),
         type: ext.includes('.pdf') ? 'pdf' : 'image', tag: 'Payment',
-        fileId: fid,
-        driveUrl: p.receiptViewUrl || (fid ? ('https://drive.google.com/file/d/' + fid + '/view') : ''),
+        fileId: fid, driveUrl: p.receiptViewUrl || (fid ? ('https://drive.google.com/file/d/' + fid + '/view') : ''),
         receiptViewUrl: p.receiptViewUrl || '', thumbnailUrl: '',
         linkedEntityId: p.id, linkedEntityType: 'Payment',
       };
     });
-
   const allData = [...MEDIA_DATA, ...payItems];
   const data = yearFilter === 'all'
     ? [...allData]

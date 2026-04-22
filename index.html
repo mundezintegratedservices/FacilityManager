@@ -3169,11 +3169,12 @@ async function submitIssue(){
             mimeType: file.type, folder: 'Issues'
           });
           if(upRes.success){
+            const _issueDate = parseUKDate(payload.reported) || new Date();
             await createRecord('Media',{
               id:'MED-'+Date.now()+'-'+Math.random().toString(36).slice(2,5),
               assetId: S.currentAsset.id,
-              year: new Date().getFullYear(),
-              month: new Date().getMonth()+1,
+              year: _issueDate.getFullYear(),
+              month: _issueDate.getMonth()+1,
               name: desc.slice(0,40),
               type: file.type.startsWith('video')?'video':file.type==='application/pdf'?'pdf':'image',
               tag: 'Issue',
@@ -3698,10 +3699,16 @@ function renderGallery() {
   const root = document.getElementById('gallery-root'); if (!root) return;
   const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
 
-  // Populate year filter options dynamically
+  // Populate year filter options dynamically — include years from payment receipts too
   const yrSel = document.getElementById('media-year-filter');
   if (yrSel) {
-    const allYears = [...new Set(MEDIA_DATA.map(m => m.year))].sort((a,b) => b-a);
+    const mediaYears = MEDIA_DATA.map(m => {
+      const pd = parseUKDate(m.date); return pd ? pd.getFullYear() : (m.year || new Date().getFullYear());
+    });
+    const payYears = SC_PAYMENTS
+      .filter(p => p.receiptFileId || p.receiptViewUrl)
+      .map(p => { const pd = parseUKDate(p.date); return pd ? pd.getFullYear() : new Date().getFullYear(); });
+    const allYears = [...new Set([...mediaYears, ...payYears])].sort((a,b) => b-a);
     const existing = [...yrSel.options].map(o => String(o.value));
     allYears.forEach(y => {
       if (!existing.includes(String(y))) {
@@ -3711,14 +3718,58 @@ function renderGallery() {
     });
   }
 
-  const data = yearFilter === 'all' ? [...MEDIA_DATA] : MEDIA_DATA.filter(m => String(m.year) === String(yearFilter));
+  // Synthesise payment receipt entries from SC_PAYMENTS into the gallery.
+  // Payment receipts are stored on the SC_Payments row (not in the Media sheet),
+  // so we build lightweight gallery items here using the user-defined payment date.
+  const existingPayIds = new Set(MEDIA_DATA.map(m => m.linkedEntityId).filter(Boolean));
+  const paymentMediaItems = SC_PAYMENTS
+    .filter(p => (p.receiptFileId || p.receiptViewUrl) && !existingPayIds.has(p.id))
+    .map(p => {
+      const pd = parseUKDate(p.date) || new Date();
+      const fid = p.receiptFileId ||
+        (p.receiptViewUrl && p.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) || '';
+      const ext = (p.receiptViewUrl || '').toLowerCase();
+      const type = ext.includes('.pdf') ? 'pdf' : 'image';
+      return {
+        id: 'pay-synth-' + p.id,
+        assetId: p.assetId,
+        year: pd.getFullYear(),
+        month: pd.getMonth() + 1,
+        date: p.date,
+        name: ('Receipt \u2014 ' + (p.tenant || p.unit || '') + ' ' + (p.period || p.date || '')).trim(),
+        type,
+        tag: 'Payment',
+        fileId: fid,
+        fileName: fid ? ('receipt_' + p.id) : '',
+        driveUrl: p.receiptViewUrl || (fid ? ('https://drive.google.com/file/d/' + fid + '/view') : ''),
+        receiptViewUrl: p.receiptViewUrl || '',
+        thumbnailUrl: '',
+        linkedEntityId: p.id,
+        linkedEntityType: 'Payment',
+      };
+    });
+
+  const allGalleryData = [...MEDIA_DATA, ...paymentMediaItems];
+
+  // Apply year filter using parsed date for accuracy (not stored m.year)
+  const data = yearFilter === 'all'
+    ? [...allGalleryData]
+    : allGalleryData.filter(m => {
+        const pd = parseUKDate(m.date);
+        const yr = pd ? pd.getFullYear() : (m.year || new Date().getFullYear());
+        return String(yr) === String(yearFilter);
+      });
 
   // Sort newest first then group by year → month
+  // Always derive year/month from the authoritative user-defined date field,
+  // falling back to stored year/month only if the date can't be parsed.
+  // This self-heals any records whose stored year/month was written incorrectly.
   data.sort((a,b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   const byYear = {};
   data.forEach(m => {
-    const yr = m.year || new Date().getFullYear();
-    const mo = m.month || 1;
+    const parsed = parseUKDate(m.date);
+    const yr = parsed ? parsed.getFullYear() : (m.year || new Date().getFullYear());
+    const mo = parsed ? (parsed.getMonth() + 1) : (m.month || 1);
     if (!byYear[yr]) byYear[yr] = {};
     if (!byYear[yr][mo]) byYear[yr][mo] = [];
     byYear[yr][mo].push(m);
@@ -4708,8 +4759,40 @@ let _mmIndex  = 0;    // currently shown index
 function _buildGalleryFlatList() {
   // Build a flat array of all items currently rendered in the gallery,
   // in the same order they appear on screen (newest-first, year→month).
+  // Must mirror the same merge logic as renderGallery() so modal navigation
+  // stays in sync with what is actually displayed on screen.
   const yearFilter = document.getElementById('media-year-filter')?.value || 'all';
-  const data = yearFilter === 'all' ? [...MEDIA_DATA] : MEDIA_DATA.filter(m => String(m.year) === String(yearFilter));
+
+  // Merge in payment receipts (same logic as renderGallery)
+  const existingPayIds = new Set(MEDIA_DATA.map(m => m.linkedEntityId).filter(Boolean));
+  const payItems = SC_PAYMENTS
+    .filter(p => (p.receiptFileId || p.receiptViewUrl) && !existingPayIds.has(p.id))
+    .map(p => {
+      const pd = parseUKDate(p.date) || new Date();
+      const fid = p.receiptFileId ||
+        (p.receiptViewUrl && p.receiptViewUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]) || '';
+      const ext = (p.receiptViewUrl || '').toLowerCase();
+      return {
+        id: 'pay-synth-' + p.id,
+        assetId: p.assetId, year: pd.getFullYear(), month: pd.getMonth() + 1,
+        date: p.date,
+        name: ('Receipt — ' + (p.tenant || p.unit || '') + ' ' + (p.period || p.date || '')).trim(),
+        type: ext.includes('.pdf') ? 'pdf' : 'image', tag: 'Payment',
+        fileId: fid,
+        driveUrl: p.receiptViewUrl || (fid ? ('https://drive.google.com/file/d/' + fid + '/view') : ''),
+        receiptViewUrl: p.receiptViewUrl || '', thumbnailUrl: '',
+        linkedEntityId: p.id, linkedEntityType: 'Payment',
+      };
+    });
+
+  const allData = [...MEDIA_DATA, ...payItems];
+  const data = yearFilter === 'all'
+    ? [...allData]
+    : allData.filter(m => {
+        const pd = parseUKDate(m.date);
+        const yr = pd ? pd.getFullYear() : (m.year || new Date().getFullYear());
+        return String(yr) === String(yearFilter);
+      });
   data.sort((a, b) => (parseUKDate(b.date)||0) - (parseUKDate(a.date)||0));
   return data;
 }

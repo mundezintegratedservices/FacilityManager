@@ -1821,6 +1821,18 @@ textarea.cl-form-input{height:130px;resize:vertical;font-size:12px}
         <input class="cl-form-input" id="cl-editOut" type="number" min="0" placeholder="0" />
       </div>
     </div>
+    <div class="cl-form-group" id="cl-editReceiptGroup">
+      <label class="cl-form-label">Receipt / Invoice</label>
+      <div id="cl-editReceiptExisting" style="display:none;margin-bottom:6px;font-size:12px;color:var(--txt2)">
+        <span>Current: </span><a id="cl-editReceiptLink" href="#" target="_blank" style="color:var(--amber);text-decoration:underline">View existing receipt</a>
+        <span style="color:var(--txt3)"> · Upload below to replace</span>
+      </div>
+      <input type="file" id="cl-editReceipt" accept="image/*,.pdf" style="display:none" />
+      <button type="button" class="btn btn-g btn-sm" onclick="document.getElementById('cl-editReceipt').click()" style="width:100%;justify-content:center;border-style:dashed">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span id="cl-editReceiptLabel">Upload receipt or invoice</span>
+      </button>
+    </div>
     <div class="cl-modal-actions">
       <button class="btn btn-d btn-sm cl-btn-danger" onclick="clDeleteFromEdit()">Delete</button>
       <button class="btn btn-g" onclick="closeMdl('cl-editModal')">Cancel</button>
@@ -2193,11 +2205,14 @@ async function loadProjects() {
         data: rawEntries
           .filter(e => e.projectId === p.id)
           .map(e => ({
+            id: e.id || null,
             date: e.date || null,
             item: e.item || '',
             in: parseFloat(e.inAmount) || 0,
             out: parseFloat(e.outAmount) || 0,
             cat: e.category || clCategorize(e.item),
+            receiptFileId: e.receiptFileId || '',
+            receiptViewUrl: e.receiptViewUrl || '',
           }))
           .sort((a, b) => (parseUKDate(a.date)||0) - (parseUKDate(b.date)||0)),
       }));
@@ -2701,8 +2716,9 @@ function renderDashboard(){
   const totalSC  = activeItems.reduce((a, i) => a + i.cost, 0);
   const perUnit  = active.length > 0 ? Math.round(totalSC / active.length) : 0;
   setText('dash-pot-sub', `${active.length} contributors · ₦${perUnit.toLocaleString()}/mo target`);
-  setText('dash-tens',    `${active.length} / ${TENANTS.filter(t => t.status !== 'archived').length}`);
-  setText('dash-tens-sub', active.length === 0 ? 'No active tenants' : active.length === TENANTS.filter(t=>t.status!=='archived').length ? 'All units occupied' : 'Some units vacant');
+  const totalUnits = S.currentAsset?.units || TENANTS.filter(t => t.status !== 'archived').length || 1;
+  setText('dash-tens',    `${active.length} / ${totalUnits}`);
+  setText('dash-tens-sub', active.length === 0 ? 'No active tenants' : active.length >= totalUnits ? 'All units occupied' : `${totalUnits - active.length} unit${totalUnits - active.length !== 1 ? 's' : ''} vacant`);
   setText('dash-issues', openIss.length);
   setText('nb-i', openIss.length);
   setText('nb-t', active.length);
@@ -2746,7 +2762,7 @@ function renderDashboard(){
       const statusColor = i.status==='resolved'?'g':i.status==='in-progress'?'a':'r';
       const statusLabel = i.status==='resolved'?'Resolved':i.status==='in-progress'?'In Progress':'Open';
       events.push({
-        date: i.updatedAt || i.reported,
+        date: i.reported || i.updatedAt,
         icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--${statusColor==='r'?'red':statusColor==='a'?'amber':'green'})" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
         title: `${i.cat} issue — ${i.unit}`,
         sub: (i.desc||'').slice(0,50) + ((i.desc||'').length > 50 ? '…' : ''),
@@ -4385,9 +4401,12 @@ function clRenderTx(rows) {
     const dateDisplay = r.date ? r.date : '<span style="color:var(--red);font-size:10px">no date</span>';
     const inDisplay = r.in > 0 ? clFmt(r.in) : '<span class="cl-tx-empty">—</span>';
     const outDisplay = r.out > 0 ? clFmt(r.out) : '<span class="cl-tx-empty">—</span>';
+    const receiptBadge = (r.receiptFileId || r.receiptViewUrl)
+      ? '<span title="Has receipt" style="margin-left:4px;color:var(--green);font-size:9px;font-family:var(--mono);vertical-align:middle">📎</span>'
+      : '';
     return '<tr>'
       + '<td class="cl-tx-date">'+dateDisplay+'</td>'
-      + '<td class="cl-tx-item">'+(r.item||'<span style="color:var(--txt3)">—</span>')+'</td>'
+      + '<td class="cl-tx-item">'+(r.item||'<span style="color:var(--txt3)">—</span>')+receiptBadge+'</td>'
       + badge
       + '<td><span style="font-size:10px;color:var(--txt3);font-family:var(--mono)">'+r.cat+'</span></td>'
       + '<td class="cl-tx-in">'+inDisplay+'</td>'
@@ -4647,10 +4666,26 @@ function clOpenEditModal(idx) {
   document.getElementById('cl-editItem').oninput = function() {
     document.getElementById('cl-editCat').value = clCategorize(this.value);
   };
+  // Receipt preview
+  const receiptExisting = document.getElementById('cl-editReceiptExisting');
+  const receiptLink = document.getElementById('cl-editReceiptLink');
+  const receiptInput = document.getElementById('cl-editReceipt');
+  const receiptLabel = document.getElementById('cl-editReceiptLabel');
+  receiptInput.value = '';
+  receiptLabel.textContent = 'Upload receipt or invoice';
+  if (r.receiptViewUrl || r.receiptFileId) {
+    receiptExisting.style.display = 'block';
+    receiptLink.href = r.receiptViewUrl || ('https://drive.google.com/file/d/' + r.receiptFileId + '/view');
+  } else {
+    receiptExisting.style.display = 'none';
+  }
+  receiptInput.onchange = function() {
+    receiptLabel.textContent = this.files[0] ? this.files[0].name : 'Upload receipt or invoice';
+  };
   openMdl('cl-editModal');
 }
 
-function clSaveEdit() {
+async function clSaveEdit() {
   if (clEditingPid === null || clEditingLocalIdx === null) return;
   const rawDate = document.getElementById('cl-editDate').value.trim();
   const newDate = clParseDate(rawDate) || null;
@@ -4658,20 +4693,68 @@ function clSaveEdit() {
   const newIn = parseFloat(document.getElementById('cl-editIn').value) || 0;
   const newOut = parseFloat(document.getElementById('cl-editOut').value) || 0;
   const existing = clProjects[clEditingPid].data[clEditingLocalIdx];
-  clProjects[clEditingPid].data[clEditingLocalIdx] = { ...existing, date: newDate, item: newItem, in: newIn, out: newOut, cat: clCategorize(newItem) };
+  const updated = { ...existing, date: newDate, item: newItem, in: newIn, out: newOut, cat: clCategorize(newItem) };
+
+  // Handle receipt upload if a file was selected
+  const receiptInput = document.getElementById('cl-editReceipt');
+  if (receiptInput && receiptInput.files && receiptInput.files[0]) {
+    const file = receiptInput.files[0];
+    const proj = clProjects[clEditingPid];
+    setLoading(true);
+    try {
+      const b64 = await fileToBase64(file);
+      const folderName = (proj.name || 'Project') + ' — Receipts';
+      const upRes = await callAppScript('uploadFile', {
+        fileData: b64,
+        fileName: 'receipt_' + Date.now() + '_' + file.name,
+        mimeType: file.type,
+        folder: folderName
+      });
+      if (upRes && upRes.success) {
+        updated.receiptFileId = upRes.fileId || '';
+        updated.receiptViewUrl = upRes.driveUrl || upRes.viewUrl || '';
+      } else {
+        toast('Receipt upload failed — entry saved without receipt', 'i');
+      }
+    } catch(e) {
+      console.warn('Receipt upload error:', e);
+      toast('Receipt upload failed — entry saved without receipt', 'i');
+    }
+    setLoading(false);
+    receiptInput.value = '';
+  }
+
+  clProjects[clEditingPid].data[clEditingLocalIdx] = updated;
   closeMdl('cl-editModal');
+
+  // Persist to DB
+  if (existing.id && S.currentAsset) {
+    updateRecord('Project_Entries', String(existing.id), {
+      date: newDate,
+      item: newItem,
+      inAmount: newIn,
+      outAmount: newOut,
+      category: updated.cat,
+      receiptFileId: updated.receiptFileId || '',
+      receiptViewUrl: updated.receiptViewUrl || '',
+      updatedAt: new Date().toISOString()
+    });
+  }
+
   clEditingPid = null; clEditingLocalIdx = null;
   clRender();
   toast('Entry updated','s');
 }
 
-function clDeleteFromEdit() {
+async function clDeleteFromEdit() {
   if (clEditingPid === null || clEditingLocalIdx === null) return;
   const r = clProjects[clEditingPid].data[clEditingLocalIdx];
   const label = r.item || clFmt(r.in || r.out);
   if (!confirm('Delete "' + label + '"?')) return;
   clProjects[clEditingPid].data.splice(clEditingLocalIdx, 1);
   closeMdl('cl-editModal');
+  // Persist to DB
+  if (r.id) deleteRecord('Project_Entries', String(r.id));
   clEditingPid = null; clEditingLocalIdx = null;
   clRender();
   toast('Entry deleted','i');
@@ -4683,6 +4766,8 @@ function clConfirmDelete(idx) {
   if (!confirm('Delete "' + label + '"?')) return;
   const localIdx = clProjects[r.pid].data.indexOf(r);
   if (localIdx > -1) clProjects[r.pid].data.splice(localIdx, 1);
+  // Persist to DB
+  if (r.id) deleteRecord('Project_Entries', String(r.id));
   clRender();
   toast('Entry deleted','i');
 }
